@@ -15,17 +15,19 @@ async fn main() {
     let texture: Texture2D = load_texture("images/test_img.png").await.unwrap();
     let mut tex_params: DrawTextureParams = DrawTextureParams::default();
 
+    // Image stuff
     let test_img = load_image("images/test_img.png").await.unwrap();
     let texture_test = Texture2D::from_image(&test_img);
     let test_img_data = test_img.get_image_data();
-    let b_data = calculate_brightness(test_img_data);
+    let brightness_data = calculate_brightness(test_img_data);
 
-    println!("b_data: {:?}", b_data);
+    let freq_data = calculate_frequencies(&brightness_data);
+    // println!("b_data: {:?}", freq_data);
 
     let (_stream, stream_handle) = rodio::OutputStream::try_default().unwrap();
-    let asd = buffer::SamplesBuffer::new(2, 44100, b_data);
+    let asd = buffer::SamplesBuffer::new(2, 44100, brightness_data);
 
-    // stream_handle.play_raw(asd.convert_samples()).unwrap();
+    stream_handle.play_raw(asd).unwrap();
 
     let mut playhead_pos = 0.0;
     let playback_speed = 10.0; // Fix speed to scale with image width!
@@ -105,4 +107,17 @@ fn calculate_brightness(data: &[[u8; 4]]) -> Vec<f32> {
     }
 
     brightness_data
+}
+
+fn calculate_frequencies(brightness_data: &[f32]) -> Vec<f32> {
+    brightness_data
+        .iter()
+        .map(|&brightness| {
+            // Map brightness to a reasonable frequency range (e.g., 200 Hz to 2000 Hz)
+            let min_frequency = 20.0;
+            let max_frequency = 20000.0;
+
+            min_frequency + brightness * (max_frequency - min_frequency)
+        })
+        .collect()
 }
