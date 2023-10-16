@@ -18,7 +18,7 @@ async fn main() {
     let test_img = load_image("images/partitur.png").await.unwrap();
     let texture_test = Texture2D::from_image(&test_img);
     let test_img_data = test_img.get_image_data();
-    let static_brightness_data = static_calculate_brightness(test_img_data).await;
+    let static_brightness_data: &'static [f32] = static_calculate_brightness(test_img_data).await;
 
     let (_stream, stream_handle) = rodio::OutputStream::try_default().unwrap();
 
