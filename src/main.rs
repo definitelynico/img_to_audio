@@ -18,25 +18,16 @@ async fn main() {
     let test_img = load_image("images/coverpng.png").await.unwrap();
     let texture_test = Texture2D::from_image(&test_img);
     let test_img_data = test_img.get_image_data();
-    // let brightness_data = calculate_brightness(test_img_data);
     let static_brightness_data = static_calculate_brightness(test_img_data);
 
-    // println!("b_data: {:?}", brightness_data);
-
     let (_stream, stream_handle) = rodio::OutputStream::try_default().unwrap();
-    // let sample_buffer = buffer::SamplesBuffer::new(2, 44100, brightness_data);
-    // let converted_samples = &sample_buffer.convert_samples::<f32>().inner().channels();
 
     let static_sample_buffer =
         rodio::static_buffer::StaticSamplesBuffer::new(2, 44100, static_brightness_data);
     let buffer_duration = static_sample_buffer.total_duration().unwrap();
     println!("buffer_duration: {:?}", buffer_duration);
 
-    // println!("sample_buffer: {:?}", converted_samples);
-    // stream_handle.play_raw(sample_buffer).unwrap();
-
     let mut playhead_pos = 0.0;
-    // let playback_speed = 10.0; // Fix speed to scale with image width!
 
     ////////////////////// TESTING //////////////////////
     let buffer_duration_secs = buffer_duration.as_secs_f32(); // Convert to seconds
@@ -107,24 +98,6 @@ fn debug_info(window_width: f32, window_height: f32, playhead_pos: f32) {
 
     let pp = format!("playhead pos: {}", playhead_pos);
     draw_text(&pp, 20.0, 60.0, 24.0, RED);
-}
-
-fn calculate_brightness(data: &[[u8; 4]]) -> Vec<f32> {
-    let mut brightness_data = Vec::new();
-
-    for pixel in data {
-        let r = pixel[0] as f32;
-        let g = pixel[1] as f32;
-        let b = pixel[2] as f32;
-
-        // Calculate average brightness (ignoring alpha)
-        // Scale to [0.0, 1.0]
-
-        // Convert to u8 and append to the result
-        brightness_data.push((r + g + b) / 3.0 / 255.0);
-    }
-
-    brightness_data
 }
 
 fn static_calculate_brightness(data: &[[u8; 4]]) -> &'static [f32] {
