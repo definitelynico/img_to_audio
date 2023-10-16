@@ -1,5 +1,5 @@
 use macroquad::{input, miniquad::conf, prelude::*};
-use rodio::{self, buffer};
+use rodio::{self, Source};
 
 fn conf() -> conf::Conf {
     conf::Conf {
@@ -12,25 +12,36 @@ fn conf() -> conf::Conf {
 
 #[macroquad::main(conf)]
 async fn main() {
-    let texture: Texture2D = load_texture("images/test_img.png").await.unwrap();
     let mut tex_params: DrawTextureParams = DrawTextureParams::default();
 
     // Image stuff
-    let test_img = load_image("images/test_img.png").await.unwrap();
+    let test_img = load_image("images/coverpng.png").await.unwrap();
     let texture_test = Texture2D::from_image(&test_img);
     let test_img_data = test_img.get_image_data();
-    let brightness_data = calculate_brightness(test_img_data);
+    // let brightness_data = calculate_brightness(test_img_data);
+    let static_brightness_data = static_calculate_brightness(test_img_data);
 
-    let freq_data = calculate_frequencies(&brightness_data);
-    // println!("b_data: {:?}", freq_data);
+    // println!("b_data: {:?}", brightness_data);
 
     let (_stream, stream_handle) = rodio::OutputStream::try_default().unwrap();
-    let asd = buffer::SamplesBuffer::new(2, 44100, brightness_data);
+    // let sample_buffer = buffer::SamplesBuffer::new(2, 44100, brightness_data);
+    // let converted_samples = &sample_buffer.convert_samples::<f32>().inner().channels();
 
-    stream_handle.play_raw(asd).unwrap();
+    let static_sample_buffer =
+        rodio::static_buffer::StaticSamplesBuffer::new(2, 44100, static_brightness_data);
+    let buffer_duration = static_sample_buffer.total_duration().unwrap();
+    println!("buffer_duration: {:?}", buffer_duration);
+
+    // println!("sample_buffer: {:?}", converted_samples);
+    // stream_handle.play_raw(sample_buffer).unwrap();
 
     let mut playhead_pos = 0.0;
-    let playback_speed = 10.0; // Fix speed to scale with image width!
+    // let playback_speed = 10.0; // Fix speed to scale with image width!
+
+    ////////////////////// TESTING //////////////////////
+    let buffer_duration_secs = buffer_duration.as_secs_f32(); // Convert to seconds
+    let playback_speed = screen_width() / buffer_duration_secs;
+    /////////////////////////////////////////////////////
 
     let mut is_playing = false;
 
@@ -46,15 +57,22 @@ async fn main() {
         });
 
         if is_playing {
+            let increment = playback_speed * delta;
+
             if playhead_pos < window_width {
-                playhead_pos += window_width * 0.01 * playback_speed * delta;
+                playhead_pos += increment;
             } else {
+                is_playing = false;
                 playhead_pos = 0.0;
             }
         }
 
         if input::is_key_pressed(KeyCode::Space) {
             is_playing = !is_playing;
+
+            stream_handle
+                .play_raw(static_sample_buffer.clone().convert_samples())
+                .unwrap();
         }
 
         clear_background(GRAY);
@@ -109,15 +127,19 @@ fn calculate_brightness(data: &[[u8; 4]]) -> Vec<f32> {
     brightness_data
 }
 
-fn calculate_frequencies(brightness_data: &[f32]) -> Vec<f32> {
-    brightness_data
-        .iter()
-        .map(|&brightness| {
-            // Map brightness to a reasonable frequency range (e.g., 200 Hz to 2000 Hz)
-            let min_frequency = 20.0;
-            let max_frequency = 20000.0;
+fn static_calculate_brightness(data: &[[u8; 4]]) -> &'static [f32] {
+    let mut brightness_data = Vec::new();
 
-            min_frequency + brightness * (max_frequency - min_frequency)
-        })
-        .collect()
+    for pixel in data {
+        let r = pixel[0] as f32;
+        let g = pixel[1] as f32;
+        let b = pixel[2] as f32;
+
+        brightness_data.push((r + g + b) / 3.0 / 255.0);
+    }
+
+    // Convert the Vec<f32> into a static slice
+    let static_slice: &'static [f32] = Box::leak(brightness_data.into_boxed_slice());
+
+    static_slice
 }
