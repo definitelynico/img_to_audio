@@ -1,9 +1,11 @@
+#![windows_subsystem = "windows"]
+
 use macroquad::{input, miniquad::conf, prelude::*};
-use rodio::{self, Source};
+use rodio::{self, Sink, Source};
 
 fn conf() -> conf::Conf {
     conf::Conf {
-        window_title: "audio to image".to_owned(),
+        window_title: "ynok - img2audio".to_owned(),
         window_width: 1280,
         window_height: 720,
         ..Default::default()
@@ -20,12 +22,12 @@ async fn main() {
     let test_img_data = test_img.get_image_data();
     let static_brightness_data: &'static [f32] = static_calculate_brightness(test_img_data).await;
 
+    // Audio stuff
     let (_stream, stream_handle) = rodio::OutputStream::try_default().unwrap();
-
     let static_sample_buffer =
         rodio::static_buffer::StaticSamplesBuffer::new(2, 44100, static_brightness_data);
     let buffer_duration = static_sample_buffer.total_duration().unwrap();
-    println!("buffer_duration: {:?}", buffer_duration);
+    let sink = Sink::try_new(&stream_handle).unwrap();
 
     let mut playhead_pos = 0.0;
 
@@ -61,9 +63,13 @@ async fn main() {
         if input::is_key_pressed(KeyCode::Space) {
             is_playing = !is_playing;
 
-            stream_handle
-                .play_raw(static_sample_buffer.clone().convert_samples())
-                .unwrap();
+            if sink.empty() {
+                playhead_pos = 0.0;
+                sink.append(static_sample_buffer.clone());
+            } else {
+                sink.stop();
+                playhead_pos = 0.0;
+            }
         }
 
         clear_background(GRAY);
