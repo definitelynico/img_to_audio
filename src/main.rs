@@ -15,10 +15,10 @@ async fn main() {
     let mut tex_params: DrawTextureParams = DrawTextureParams::default();
 
     // Image stuff
-    let test_img = load_image("images/coverpng.png").await.unwrap();
+    let test_img = load_image("images/partitur.png").await.unwrap();
     let texture_test = Texture2D::from_image(&test_img);
     let test_img_data = test_img.get_image_data();
-    let static_brightness_data = static_calculate_brightness(test_img_data);
+    let static_brightness_data = static_calculate_brightness(test_img_data).await;
 
     let (_stream, stream_handle) = rodio::OutputStream::try_default().unwrap();
 
@@ -100,7 +100,7 @@ fn debug_info(window_width: f32, window_height: f32, playhead_pos: f32) {
     draw_text(&pp, 20.0, 60.0, 24.0, RED);
 }
 
-fn static_calculate_brightness(data: &[[u8; 4]]) -> &'static [f32] {
+async fn static_calculate_brightness(data: &[[u8; 4]]) -> &'static [f32] {
     let mut brightness_data = Vec::new();
 
     for pixel in data {
