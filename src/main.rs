@@ -153,7 +153,7 @@ fn debug_info(window_width: f32, window_height: f32, playhead_pos: f32, sample_r
     let window_status = format!("res: {}x{}", window_width, window_height);
     draw_text(&window_status, 20.0, 45.0, font_size, BLUE);
 
-    let pp = format!("ph pos: {}", playhead_pos);
+    let pp = format!("ph pos: {:.2}", playhead_pos);
     draw_text(&pp, 20.0, 65.0, font_size, PURPLE);
     let sr_str = format!("sr: {}", sample_rate);
     draw_text(&sr_str, 20.0, 85.0, font_size, PINK);
