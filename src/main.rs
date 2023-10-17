@@ -139,7 +139,9 @@ async fn main() {
 
         next_frame().await;
 
-        if input::is_key_pressed(KeyCode::P) {
+        if input::is_key_pressed(KeyCode::E) {
+            sink.stop();
+            playhead_pos = 0.0;
             save_to_file(static_sample_buffer.clone());
         }
 
@@ -185,6 +187,12 @@ async fn static_calculate_brightness(data: &[[u8; 4]]) -> &'static [f32] {
 }
 
 fn save_to_file(buffer: StaticSamplesBuffer<f32>) {
+    let pp = rfd::FileDialog::new()
+        .add_filter("Waveform Audio File", &["wav"])
+        .save_file()
+        .unwrap();
+    let save_path = pp.to_str().unwrap();
+
     let spec = hound::WavSpec {
         channels: 1,
         sample_rate: 88200,
@@ -193,7 +201,7 @@ fn save_to_file(buffer: StaticSamplesBuffer<f32>) {
     };
 
     // Export .wav from static sample buffer
-    let mut writer = hound::WavWriter::create("output.wav", spec).unwrap();
+    let mut writer = hound::WavWriter::create(save_path, spec).unwrap();
     for sample in buffer.into_iter() {
         writer
             .write_sample((sample * i16::MAX as f32) as i16)
