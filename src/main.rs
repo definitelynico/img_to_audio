@@ -1,6 +1,6 @@
 #![windows_subsystem = "windows"]
 
-use macroquad::{input, miniquad::conf, prelude::*, ui::Ui};
+use macroquad::{input, miniquad::conf, prelude::*};
 use rodio::{self, Sink, Source};
 
 fn conf() -> conf::Conf {
@@ -32,8 +32,7 @@ async fn main() {
         static_calculate_brightness(test_img_data).await;
 
     // Audio stuff
-    let mut sr_str: String;
-    let mut sample_rate: u32 = 44100;
+    let sample_rate: u32 = 44100;
     let (_stream, stream_handle) = rodio::OutputStream::try_default().unwrap();
     let mut static_sample_buffer =
         rodio::static_buffer::StaticSamplesBuffer::new(2, sample_rate, static_brightness_data);
@@ -61,7 +60,7 @@ async fn main() {
         });
 
         if is_playing {
-            let increment = playback_speed * delta;
+            let increment = playback_speed * sink.speed() * delta;
 
             if playhead_pos < window_width {
                 playhead_pos += increment;
@@ -109,13 +108,13 @@ async fn main() {
         }
 
         if input::is_key_pressed(KeyCode::S) {
-            // Cycle between 44100, 22050, 11025
-            if sample_rate == 44100 {
-                sample_rate = 22050;
-            } else if sample_rate == 22050 {
-                sample_rate = 11025;
-            } else if sample_rate == 11025 {
-                sample_rate = 44100;
+            let current_speed = sink.speed();
+            if current_speed == 1.0 {
+                sink.set_speed(0.5);
+            } else if current_speed == 0.5 {
+                sink.set_speed(0.25);
+            } else if current_speed == 0.25 {
+                sink.set_speed(1.0);
             }
         }
 
@@ -132,7 +131,7 @@ async fn main() {
 
         // Debug info stuff
         if show_debug_info {
-            debug_info(window_width, window_height, playhead_pos, sample_rate);
+            debug_info(window_width, window_height, playhead_pos, &sink);
         }
 
         next_frame().await;
@@ -144,7 +143,7 @@ async fn main() {
     }
 }
 
-fn debug_info(window_width: f32, window_height: f32, playhead_pos: f32, sample_rate: u32) {
+fn debug_info(window_width: f32, window_height: f32, playhead_pos: f32, sink: &Sink) {
     let font_size = 36.0;
     let fps_str: String = format!("fps: {}", get_fps());
     draw_rectangle(0.0, 0.0, 300.0, 100.0, BLACK);
@@ -155,7 +154,7 @@ fn debug_info(window_width: f32, window_height: f32, playhead_pos: f32, sample_r
 
     let pp = format!("ph pos: {:.2}", playhead_pos);
     draw_text(&pp, 20.0, 65.0, font_size, PURPLE);
-    let sr_str = format!("sr: {}", sample_rate);
+    let sr_str = format!("speed: {}", sink.speed());
     draw_text(&sr_str, 20.0, 85.0, font_size, PINK);
 }
 
