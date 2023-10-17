@@ -617,6 +617,7 @@ dependencies = [
 name = "macroquad_img_to_audio"
 version = "0.1.0"
 dependencies = [
+ "hound",
  "macroquad",
  "rfd",
  "rodio",

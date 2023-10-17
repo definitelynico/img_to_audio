@@ -1,7 +1,8 @@
 #![windows_subsystem = "windows"]
 
+use hound;
 use macroquad::{input, miniquad::conf, prelude::*};
-use rodio::{self, Sink, Source};
+use rodio::{self, static_buffer::StaticSamplesBuffer, Sink, Source};
 
 fn conf() -> conf::Conf {
     conf::Conf {
@@ -20,7 +21,7 @@ async fn main() {
 
     // Image stuff
     let path = rfd::FileDialog::new()
-        .add_filter("Images", &["png", "jpg", "jpeg"])
+        .add_filter("Images", &["png"])
         .pick_file()
         .unwrap();
 
@@ -32,10 +33,11 @@ async fn main() {
         static_calculate_brightness(test_img_data).await;
 
     // Audio stuff
-    let sample_rate: u32 = 44100;
+    let sample_rate: u32 = 88200;
     let (_stream, stream_handle) = rodio::OutputStream::try_default().unwrap();
     let mut static_sample_buffer =
-        rodio::static_buffer::StaticSamplesBuffer::new(2, sample_rate, static_brightness_data);
+        rodio::static_buffer::StaticSamplesBuffer::new(1, sample_rate, static_brightness_data);
+    // let mut filtered_audio = static_sample_buffer.buffered().high_pass(1200);
     let mut buffer_duration = static_sample_buffer.total_duration().unwrap();
     let sink = Sink::try_new(&stream_handle).unwrap();
 
@@ -72,10 +74,11 @@ async fn main() {
 
         if input::is_key_pressed(KeyCode::I) {
             sink.stop();
+            is_playing = false;
             playhead_pos = 0.0;
 
             let path = rfd::FileDialog::new()
-                .add_filter("Images", &["png", "jpg", "jpeg"])
+                .add_filter("Images", &["png"])
                 .pick_file()
                 .unwrap();
 
@@ -86,13 +89,13 @@ async fn main() {
             test_img_data = test_img.get_image_data();
             static_brightness_data = static_calculate_brightness(test_img_data).await;
             static_sample_buffer = rodio::static_buffer::StaticSamplesBuffer::new(
-                2,
+                1,
                 sample_rate,
                 static_brightness_data,
             );
             buffer_duration = static_sample_buffer.total_duration().unwrap();
             buffer_duration_secs = buffer_duration.as_secs_f32(); // Convert to seconds
-            playback_speed = screen_width() / buffer_duration_secs;
+            playback_speed = window_width / buffer_duration_secs;
         }
 
         if input::is_key_pressed(KeyCode::Space) {
@@ -136,6 +139,10 @@ async fn main() {
 
         next_frame().await;
 
+        if input::is_key_pressed(KeyCode::P) {
+            save_to_file(static_sample_buffer.clone());
+        }
+
         // Exit the app
         if is_key_pressed(KeyCode::Escape) {
             break;
@@ -166,11 +173,30 @@ async fn static_calculate_brightness(data: &[[u8; 4]]) -> &'static [f32] {
         let g = pixel[1] as f32;
         let b = pixel[2] as f32;
 
-        brightness_data.push((r + g + b) / 3.0 / 255.0);
+        // brightness_data.push((r + g + b) / 3.0 / 255.0);
+        //Scale brightness data to be between -1.0 and 1.0
+        brightness_data.push(((r + g + b) / 3.0 / 255.0) * 2.0 - 1.0);
     }
 
     // Convert the Vec<f32> into a static slice
     let static_slice: &'static [f32] = Box::leak(brightness_data.into_boxed_slice());
 
     static_slice
+}
+
+fn save_to_file(buffer: StaticSamplesBuffer<f32>) {
+    let spec = hound::WavSpec {
+        channels: 1,
+        sample_rate: 88200,
+        bits_per_sample: 16,
+        sample_format: hound::SampleFormat::Int,
+    };
+
+    // Export .wav from static sample buffer
+    let mut writer = hound::WavWriter::create("output.wav", spec).unwrap();
+    for sample in buffer.into_iter() {
+        writer
+            .write_sample((sample * i16::MAX as f32) as i16)
+            .unwrap();
+    }
 }
