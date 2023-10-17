@@ -8,32 +8,36 @@ fn conf() -> conf::Conf {
         window_title: "ynok - img2audio".to_owned(),
         window_width: 1280,
         window_height: 720,
+        window_resizable: false,
         ..Default::default()
     }
 }
 
 #[macroquad::main(conf)]
 async fn main() {
+    let mut show_debug_info: bool = false;
     let mut tex_params: DrawTextureParams = DrawTextureParams::default();
 
     // Image stuff
-    let test_img = load_image("images/partitur.png").await.unwrap();
-    let texture_test = Texture2D::from_image(&test_img);
-    let test_img_data = test_img.get_image_data();
-    let static_brightness_data: &'static [f32] = static_calculate_brightness(test_img_data).await;
+    let mut test_img = load_image("images/partitur.png").await.unwrap();
+    let mut texture_test = Texture2D::from_image(&test_img);
+    let mut test_img_data = test_img.get_image_data();
+    let mut static_brightness_data: &'static [f32] =
+        static_calculate_brightness(test_img_data).await;
 
     // Audio stuff
+    let mut sample_rate: u32 = 44100;
     let (_stream, stream_handle) = rodio::OutputStream::try_default().unwrap();
-    let static_sample_buffer =
-        rodio::static_buffer::StaticSamplesBuffer::new(2, 44100, static_brightness_data);
-    let buffer_duration = static_sample_buffer.total_duration().unwrap();
+    let mut static_sample_buffer =
+        rodio::static_buffer::StaticSamplesBuffer::new(2, sample_rate, static_brightness_data);
+    let mut buffer_duration = static_sample_buffer.total_duration().unwrap();
     let sink = Sink::try_new(&stream_handle).unwrap();
 
     let mut playhead_pos = 0.0;
 
     ////////////////////// TESTING //////////////////////
-    let buffer_duration_secs = buffer_duration.as_secs_f32(); // Convert to seconds
-    let playback_speed = screen_width() / buffer_duration_secs;
+    let mut buffer_duration_secs = buffer_duration.as_secs_f32(); // Convert to seconds
+    let mut playback_speed = screen_width() / buffer_duration_secs;
     /////////////////////////////////////////////////////
 
     let mut is_playing = false;
@@ -60,6 +64,28 @@ async fn main() {
             }
         }
 
+        if input::is_key_pressed(KeyCode::I) {
+            sink.stop();
+            playhead_pos = 0.0;
+
+            let path = rfd::FileDialog::new()
+                .add_filter("Images", &["png", "jpg", "jpeg"])
+                .pick_file()
+                .unwrap();
+
+            let path_str = path.to_str().unwrap();
+
+            test_img = load_image(path_str).await.unwrap();
+            texture_test = Texture2D::from_image(&test_img);
+            test_img_data = test_img.get_image_data();
+            static_brightness_data = static_calculate_brightness(test_img_data).await;
+            static_sample_buffer =
+                rodio::static_buffer::StaticSamplesBuffer::new(2, 44100, static_brightness_data);
+            buffer_duration = static_sample_buffer.total_duration().unwrap();
+            buffer_duration_secs = buffer_duration.as_secs_f32(); // Convert to seconds
+            playback_speed = screen_width() / buffer_duration_secs;
+        }
+
         if input::is_key_pressed(KeyCode::Space) {
             is_playing = !is_playing;
 
@@ -72,6 +98,14 @@ async fn main() {
             }
         }
 
+        if input::is_key_pressed(KeyCode::S) {
+            // Save audio to .wav
+        }
+
+        if input::is_key_pressed(KeyCode::D) {
+            show_debug_info = !show_debug_info;
+        }
+
         clear_background(GRAY);
 
         draw_texture_ex(&texture_test, 0.0, 0.0, WHITE, tex_params.to_owned());
@@ -80,7 +114,9 @@ async fn main() {
         draw_line(playhead_pos, 0.0, playhead_pos, window_height, 4.0, RED);
 
         // Debug info stuff
-        debug_info(window_width, window_height, playhead_pos);
+        if show_debug_info {
+            debug_info(window_width, window_height, playhead_pos);
+        }
 
         next_frame().await;
 

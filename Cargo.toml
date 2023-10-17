@@ -7,4 +7,5 @@ edition = "2021"
 
 [dependencies]
 macroquad = "0.4.4"
+rfd = "0.12.0"
 rodio = "0.17.1"
