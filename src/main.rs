@@ -1,6 +1,6 @@
 #![windows_subsystem = "windows"]
 
-use macroquad::{input, miniquad::conf, prelude::*};
+use macroquad::{input, miniquad::conf, prelude::*, ui::Ui};
 use rodio::{self, Sink, Source};
 
 fn conf() -> conf::Conf {
@@ -19,13 +19,20 @@ async fn main() {
     let mut tex_params: DrawTextureParams = DrawTextureParams::default();
 
     // Image stuff
-    let mut test_img = load_image("images/partitur.png").await.unwrap();
+    let path = rfd::FileDialog::new()
+        .add_filter("Images", &["png", "jpg", "jpeg"])
+        .pick_file()
+        .unwrap();
+
+    let path_str = path.to_str().unwrap();
+    let mut test_img = load_image(path_str).await.unwrap();
     let mut texture_test = Texture2D::from_image(&test_img);
     let mut test_img_data = test_img.get_image_data();
     let mut static_brightness_data: &'static [f32] =
         static_calculate_brightness(test_img_data).await;
 
     // Audio stuff
+    let mut sr_str: String;
     let mut sample_rate: u32 = 44100;
     let (_stream, stream_handle) = rodio::OutputStream::try_default().unwrap();
     let mut static_sample_buffer =
@@ -79,8 +86,11 @@ async fn main() {
             texture_test = Texture2D::from_image(&test_img);
             test_img_data = test_img.get_image_data();
             static_brightness_data = static_calculate_brightness(test_img_data).await;
-            static_sample_buffer =
-                rodio::static_buffer::StaticSamplesBuffer::new(2, 44100, static_brightness_data);
+            static_sample_buffer = rodio::static_buffer::StaticSamplesBuffer::new(
+                2,
+                sample_rate,
+                static_brightness_data,
+            );
             buffer_duration = static_sample_buffer.total_duration().unwrap();
             buffer_duration_secs = buffer_duration.as_secs_f32(); // Convert to seconds
             playback_speed = screen_width() / buffer_duration_secs;
@@ -99,7 +109,14 @@ async fn main() {
         }
 
         if input::is_key_pressed(KeyCode::S) {
-            // Save audio to .wav
+            // Cycle between 44100, 22050, 11025
+            if sample_rate == 44100 {
+                sample_rate = 22050;
+            } else if sample_rate == 22050 {
+                sample_rate = 11025;
+            } else if sample_rate == 11025 {
+                sample_rate = 44100;
+            }
         }
 
         if input::is_key_pressed(KeyCode::D) {
@@ -115,7 +132,7 @@ async fn main() {
 
         // Debug info stuff
         if show_debug_info {
-            debug_info(window_width, window_height, playhead_pos);
+            debug_info(window_width, window_height, playhead_pos, sample_rate);
         }
 
         next_frame().await;
@@ -127,19 +144,19 @@ async fn main() {
     }
 }
 
-fn debug_info(window_width: f32, window_height: f32, playhead_pos: f32) {
-    let fps_str: String = get_fps().to_string();
-    // let delta_str = format!("{}", delta);
-    draw_text(&fps_str, 20.0, 20.0, 36.0, LIME);
+fn debug_info(window_width: f32, window_height: f32, playhead_pos: f32, sample_rate: u32) {
+    let font_size = 36.0;
+    let fps_str: String = format!("fps: {}", get_fps());
+    draw_rectangle(0.0, 0.0, 300.0, 100.0, BLACK);
+    draw_text(&fps_str, 20.0, 25.0, font_size, GREEN);
 
-    let window_status = format!(
-        "window width: {} window height: {}",
-        window_width, window_height
-    );
-    draw_text(&window_status, 20.0, 40.0, 24.0, RED);
+    let window_status = format!("res: {}x{}", window_width, window_height);
+    draw_text(&window_status, 20.0, 45.0, font_size, BLUE);
 
-    let pp = format!("playhead pos: {}", playhead_pos);
-    draw_text(&pp, 20.0, 60.0, 24.0, RED);
+    let pp = format!("ph pos: {}", playhead_pos);
+    draw_text(&pp, 20.0, 65.0, font_size, PURPLE);
+    let sr_str = format!("sr: {}", sample_rate);
+    draw_text(&sr_str, 20.0, 85.0, font_size, PINK);
 }
 
 async fn static_calculate_brightness(data: &[[u8; 4]]) -> &'static [f32] {
