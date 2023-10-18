@@ -20,20 +20,16 @@ async fn main() {
     let mut tex_params: DrawTextureParams = DrawTextureParams::default();
 
     // Image stuff
-    let path = rfd::FileDialog::new()
-        .add_filter("Images", &["png"])
-        .pick_file()
-        .unwrap();
 
-    let path_str = path.to_str().unwrap();
-    let mut test_img = load_image(path_str).await.unwrap();
+    // let mut test_img = load_image("path").await.unwrap();
+    let mut test_img = image_load_dialog().await;
     let mut texture_test = Texture2D::from_image(&test_img);
     let mut test_img_data = test_img.get_image_data();
     let mut static_brightness_data: &'static [f32] =
         static_calculate_brightness(test_img_data).await;
 
     // Audio stuff
-    let sample_rate: u32 = 88200;
+    let sample_rate: u32 = 44100;
     let (_stream, stream_handle) = rodio::OutputStream::try_default().unwrap();
     let mut static_sample_buffer =
         rodio::static_buffer::StaticSamplesBuffer::new(1, sample_rate, static_brightness_data);
@@ -77,14 +73,7 @@ async fn main() {
             is_playing = false;
             playhead_pos = 0.0;
 
-            let path = rfd::FileDialog::new()
-                .add_filter("Images", &["png"])
-                .pick_file()
-                .unwrap();
-
-            let path_str = path.to_str().unwrap();
-
-            test_img = load_image(path_str).await.unwrap();
+            test_img = image_load_dialog().await;
             texture_test = Texture2D::from_image(&test_img);
             test_img_data = test_img.get_image_data();
             static_brightness_data = static_calculate_brightness(test_img_data).await;
@@ -187,24 +176,45 @@ async fn static_calculate_brightness(data: &[[u8; 4]]) -> &'static [f32] {
 }
 
 fn save_to_file(buffer: StaticSamplesBuffer<f32>) {
-    let pp = rfd::FileDialog::new()
+    let pp = match rfd::FileDialog::new()
         .add_filter("Waveform Audio File", &["wav"])
         .save_file()
-        .unwrap();
-    let save_path = pp.to_str().unwrap();
+    {
+        Some(path) => path.to_string_lossy().to_string(),
+        None => return,
+    };
 
     let spec = hound::WavSpec {
         channels: 1,
-        sample_rate: 88200,
+        sample_rate: 44100,
         bits_per_sample: 16,
         sample_format: hound::SampleFormat::Int,
     };
 
     // Export .wav from static sample buffer
-    let mut writer = hound::WavWriter::create(save_path, spec).unwrap();
+    let mut writer = hound::WavWriter::create(pp, spec).unwrap();
     for sample in buffer.into_iter() {
         writer
             .write_sample((sample * i16::MAX as f32) as i16)
             .unwrap();
     }
+}
+
+async fn image_load_dialog() -> Image {
+    let mut img = Image::empty();
+
+    match rfd::FileDialog::new()
+        .add_filter("Images", &["png"])
+        .pick_file()
+    {
+        Some(path) => {
+            let path_str = path.to_str().unwrap();
+            img = load_image(path_str).await.unwrap();
+        }
+        None => {
+            println!("No file selected");
+        }
+    };
+
+    img
 }
