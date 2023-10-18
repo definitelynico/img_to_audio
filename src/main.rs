@@ -1,6 +1,5 @@
 #![windows_subsystem = "windows"]
 
-use hound;
 use macroquad::{input, miniquad::conf, prelude::*};
 use rodio::{self, static_buffer::StaticSamplesBuffer, Sink, Source};
 
@@ -99,14 +98,18 @@ async fn main() {
             }
         }
 
-        if input::is_key_pressed(KeyCode::S) {
+        if input::is_key_pressed(KeyCode::Right) {
+            // speed up with 0.25, max 4
             let current_speed = sink.speed();
-            if current_speed == 1.0 {
-                sink.set_speed(0.5);
-            } else if current_speed == 0.5 {
-                sink.set_speed(0.25);
-            } else if current_speed == 0.25 {
-                sink.set_speed(1.0);
+            if current_speed < 4.0 {
+                sink.set_speed(current_speed + 0.25);
+            }
+        }
+
+        if input::is_key_pressed(KeyCode::Left) {
+            let current_speed = sink.speed();
+            if current_speed > 0.25 {
+                sink.set_speed(current_speed - 0.25);
             }
         }
 
@@ -128,7 +131,7 @@ async fn main() {
 
         next_frame().await;
 
-        if input::is_key_pressed(KeyCode::E) {
+        if input::is_key_pressed(KeyCode::S) {
             sink.stop();
             playhead_pos = 0.0;
             save_to_file(static_sample_buffer.clone());
