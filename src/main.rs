@@ -6,8 +6,8 @@ use rodio::{self, static_buffer::StaticSamplesBuffer, Sink, Source};
 fn conf() -> conf::Conf {
     conf::Conf {
         window_title: "ynok - img2audio".to_owned(),
-        window_width: 1280,
-        window_height: 720,
+        window_width: 600,
+        window_height: 600,
         window_resizable: false,
         ..Default::default()
     }
@@ -19,8 +19,6 @@ async fn main() {
     let mut tex_params: DrawTextureParams = DrawTextureParams::default();
 
     // Image stuff
-
-    // let mut test_img = load_image("path").await.unwrap();
     let mut test_img = image_load_dialog().await;
     let mut texture_test = Texture2D::from_image(&test_img);
     let mut test_img_data = test_img.get_image_data();
@@ -32,24 +30,20 @@ async fn main() {
     let (_stream, stream_handle) = rodio::OutputStream::try_default().unwrap();
     let mut static_sample_buffer =
         rodio::static_buffer::StaticSamplesBuffer::new(1, sample_rate, static_brightness_data);
-    // let mut filtered_audio = static_sample_buffer.buffered().high_pass(1200);
+    // let mut filtered_audio = static_sample_buffer.buffered().high_pass(30); // Filter out very low frequencies
     let mut buffer_duration = static_sample_buffer.total_duration().unwrap();
     let sink = Sink::try_new(&stream_handle).unwrap();
 
-    let mut playhead_pos = 0.0;
-
-    ////////////////////// TESTING //////////////////////
+    // Data stuff
+    let window_height = screen_height();
+    let window_width = screen_width();
     let mut buffer_duration_secs = buffer_duration.as_secs_f32(); // Convert to seconds
-    let mut playback_speed = screen_width() / buffer_duration_secs;
-    /////////////////////////////////////////////////////
-
+    let mut playback_speed = window_width / buffer_duration_secs;
+    let mut playhead_pos = 0.0;
     let mut is_playing = false;
 
     loop {
         let delta = get_frame_time();
-
-        let window_height = screen_height();
-        let window_width = screen_width();
 
         tex_params.dest_size = Some(Vec2 {
             x: window_width,
@@ -83,7 +77,7 @@ async fn main() {
             );
             buffer_duration = static_sample_buffer.total_duration().unwrap();
             buffer_duration_secs = buffer_duration.as_secs_f32(); // Convert to seconds
-            playback_speed = window_width / buffer_duration_secs;
+            playback_speed = window_width / buffer_duration_secs
         }
 
         if input::is_key_pressed(KeyCode::Space) {
@@ -99,7 +93,6 @@ async fn main() {
         }
 
         if input::is_key_pressed(KeyCode::Right) {
-            // speed up with 0.25, max 4
             let current_speed = sink.speed();
             if current_speed < 4.0 {
                 sink.set_speed(current_speed + 0.25);
@@ -133,6 +126,7 @@ async fn main() {
 
         if input::is_key_pressed(KeyCode::S) {
             sink.stop();
+            is_playing = false;
             playhead_pos = 0.0;
             save_to_file(static_sample_buffer.clone());
         }
