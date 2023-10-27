@@ -161,7 +161,6 @@ async fn static_calculate_brightness(data: &[[u8; 4]]) -> &'static [f32] {
         let g = pixel[1] as f32;
         let b = pixel[2] as f32;
 
-        // brightness_data.push((r + g + b) / 3.0 / 255.0);
         //Scale brightness data to be between -1.0 and 1.0
         brightness_data.push(((r + g + b) / 3.0 / 255.0) * 2.0 - 1.0);
     }
